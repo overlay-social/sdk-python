@@ -158,19 +158,50 @@ class ProfileRow:
 
 
 @dataclass(frozen=True)
+class TopicAnchor:
+    """Latest on-chain anchor for a topic's state-root (when present in /state).
+    `matches_live` is True when the served state_root equals the anchored root."""
+
+    root: str
+    txid: str
+    vout: int
+    outpoint: str
+    block_height: int | None = None
+    ts: int | None = None
+    anchored_at: str | None = None
+    matches_live: bool = False
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "TopicAnchor":
+        return cls(
+            root=d.get("root", ""),
+            txid=d.get("txid", ""),
+            vout=int(d.get("vout", 0)),
+            outpoint=d.get("outpoint", ""),
+            block_height=d.get("blockHeight"),
+            ts=d.get("ts"),
+            anchored_at=d.get("anchoredAt"),
+            matches_live=bool(d.get("matchesLive", False)),
+        )
+
+
+@dataclass(frozen=True)
 class TopicState:
     topic: str
     count: int
     state_root: str
     source: str
+    anchor: TopicAnchor | None = None
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "TopicState":
+        a = d.get("anchor")
         return cls(
             topic=d.get("topic", ""),
             count=int(d.get("count", 0)),
             state_root=d.get("stateRoot", ""),
             source=d.get("source", ""),
+            anchor=TopicAnchor.from_dict(a) if isinstance(a, dict) else None,
         )
 
 

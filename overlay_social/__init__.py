@@ -37,6 +37,7 @@ from .models import (
     ProfileState,
     ResolvedIdentity,
     ThreadResponse,
+    TopicAnchor,
     TopicState,
 )
 
@@ -58,6 +59,7 @@ __all__ = [
     "ProfileState",
     "OverlayState",
     "TopicState",
+    "TopicAnchor",
     "FeedResponse",
     "ThreadResponse",
     "PeckRow",

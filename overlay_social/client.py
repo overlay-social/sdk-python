@@ -29,6 +29,7 @@ from .models import (
     ProfileRow,
     ResolvedIdentity,
     ThreadResponse,
+    TopicAnchor,
     TopicState,
 )
 
@@ -255,6 +256,42 @@ class OverlayClient:
             return None
         return None
 
+    def get_anchor(self, topic: str) -> TopicAnchor | None:
+        """Latest on-chain anchor for a topic's state-root, or None when nothing
+        is anchored yet (anchoring not enabled / topic untracked)."""
+        if not topic:
+            return None
+        try:
+            for t in self.get_state().topics:
+                if t.topic == topic:
+                    return t.anchor
+        except OverlayError:
+            return None
+        return None
+
+    def verify_root(self, topic: str) -> dict:
+        """Verify the current state-root against the chain. Returns whether the
+        topic has any anchor, whether the live root matches the anchored root,
+        and the anchor txid for independent BEEF verification (BRC-62)."""
+        empty = {"anchored": False, "matches_live": False, "live_root": None, "anchored_root": None, "txid": None}
+        if not topic:
+            return empty
+        try:
+            state = self.get_state()
+        except OverlayError:
+            return empty
+        t = next((x for x in state.topics if x.topic == topic), None)
+        if t is None:
+            return empty
+        a = t.anchor
+        return {
+            "anchored": a is not None,
+            "matches_live": bool(a and a.matches_live),
+            "live_root": t.state_root,
+            "anchored_root": a.root if a else None,
+            "txid": a.txid if a else None,
+        }
+
 
 # ── async client ─────────────────────────────────────────────────────────────
 
@@ -367,6 +404,38 @@ class AsyncOverlayClient:
             if t.topic == topic:
                 return t
         return None
+
+    async def get_anchor(self, topic: str) -> TopicAnchor | None:
+        if not topic:
+            return None
+        try:
+            state = await self.get_state()
+        except OverlayError:
+            return None
+        for t in state.topics:
+            if t.topic == topic:
+                return t.anchor
+        return None
+
+    async def verify_root(self, topic: str) -> dict:
+        empty = {"anchored": False, "matches_live": False, "live_root": None, "anchored_root": None, "txid": None}
+        if not topic:
+            return empty
+        try:
+            state = await self.get_state()
+        except OverlayError:
+            return empty
+        t = next((x for x in state.topics if x.topic == topic), None)
+        if t is None:
+            return empty
+        a = t.anchor
+        return {
+            "anchored": a is not None,
+            "matches_live": bool(a and a.matches_live),
+            "live_root": t.state_root,
+            "anchored_root": a.root if a else None,
+            "txid": a.txid if a else None,
+        }
 
 
 def create_overlay_client(base_url: str = DEFAULT_OVERLAY_URL, **kw: Any) -> OverlayClient:
