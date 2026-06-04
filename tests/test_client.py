@@ -37,7 +37,7 @@ def test_get_state_sync() -> None:
     assert isinstance(state, OverlayState)
     assert state.status == "ok"
     assert state.network == "main"
-    assert any(t.topic == "tm_peck-bio-profile" for t in state.topics)
+    assert any(t.topic == "tm_social-profile" for t in state.topics)
     # state-roots are 64-hex sha256
     for t in state.topics:
         assert len(t.state_root) == 64
