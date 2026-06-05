@@ -94,6 +94,13 @@ def _interp_resolve(ok: bool, data: Any) -> dict[str, ResolvedIdentity]:
     return {k: ResolvedIdentity.from_dict(v) for k, v in ids.items() if isinstance(v, dict)}
 
 
+def _interp_list_identities(data: Any) -> list[ResolvedIdentity]:
+    if not isinstance(data, dict):
+        return []
+    ids = data.get("identities") or []
+    return [ResolvedIdentity.from_dict(v) for v in ids if isinstance(v, dict)]
+
+
 def _interp_identity(data: Any) -> IdentityBundle | None:
     if not isinstance(data, dict) or data.get("error") or not data.get("pubkey"):
         return None
@@ -200,6 +207,20 @@ class OverlayClient:
             return _interp_resolve(r.status_code // 100 == 2, r.json() if r.content else None)
         except Exception:
             return {}
+
+    def list_identities(self, *, limit: int = 50, offset: int = 0) -> list[ResolvedIdentity]:
+        """GET /v1/identities — people-discovery: canonical profiles, newest
+        first ("who's on the overlay"). Returns [] on any error."""
+        try:
+            r = self._client.get(
+                f"{self.base_url}/v1/identities",
+                params={"limit": limit, "offset": offset},
+            )
+            if r.status_code // 100 != 2:
+                return []
+            return _interp_list_identities(r.json() if r.content else None)
+        except Exception:
+            return []
 
     def get_identity(self, pubkey: str) -> IdentityBundle | None:
         if not pubkey:
