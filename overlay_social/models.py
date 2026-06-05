@@ -28,6 +28,7 @@ class ResolvedIdentity:
     display_name: str | None = None
     avatar_ref: str | None = None
     profile_outpoint: str | None = None
+    minted_at: str | None = None  # set by GET /v1/identities (discovery); None from resolve
 
     @classmethod
     def from_dict(cls, d: dict[str, Any]) -> "ResolvedIdentity":
@@ -38,6 +39,7 @@ class ResolvedIdentity:
             display_name=d.get("displayName"),
             avatar_ref=d.get("avatarRef"),
             profile_outpoint=d.get("profileOutpoint"),
+            minted_at=d.get("mintedAt"),
         )
 
 
