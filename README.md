@@ -69,11 +69,37 @@ Mirrors the overlay's load-bearing role for other apps:
   network failure.
 - Every request has a hard timeout (default 8s).
 
+## Social graph & notifications (0.2.0)
+
+```python
+graph = overlay.get_friends("<identity-root-pubkey>")
+graph.mutual        # active friendships (both directions attested, BRC-3)
+graph.pending_in    # incoming requests
+graph.pending_out   # outgoing requests
+
+notifs = overlay.get_notifications("<posting-address>", limit=50)
+# -> [NotificationItem(type='friend_request'|'like'|'reply'|'follow'|'mention', actor=..., ...)]
+
+overlay.get_follows("<address>")          # follower/following counts + rows
+overlay.get_blocks("<address>")           # OUTGOING block/mute list only
+overlay.get_feed(near={"lat": 59.94, "lng": 10.76}, radius_km=2)   # geo
+overlay.get_feed(bbox=(10.5, 59.8, 11.0, 60.1))                    # bounding box
+overlay.verify_root("tm_social-content")  # on-chain anchor vs live state-root
+```
+
+All graph/notification reads are best-effort: safe empties on error, so
+social UI never bricks on enrichment. Friendship is **mutual consent** —
+two one-way BRC-3 attestations form an active pair; legacy BAP-era friend
+rows are exposed display-only.
+
 ## Endpoints used
 
-`GET /state`, `POST /v1/identities/resolve`, `GET /identity/:pubkey`,
-`GET /resolve/:handle`, `GET /v1/bio/profile`, `GET /v1/feed`,
-`GET /v1/post/:txid`, `GET /v1/thread/:txid`. WhatsOnChain is **never** called.
+`GET /state`, `GET /v1/topic/:topic/root`, `POST /v1/identities/resolve`,
+`GET /v1/identities`, `GET /identity/:pubkey`, `GET /resolve/:handle`,
+`GET /v1/bio/profile`, `GET /v1/feed` (incl. `near`/`bbox`),
+`GET /v1/post/:txid`, `GET /v1/thread/:txid`, `GET /v1/friends/:subject`,
+`GET /v1/notifications/:address`, `GET /v1/follows/:address`,
+`GET /v1/blocks/:address`. WhatsOnChain is **never** called.
 
 ## License
 

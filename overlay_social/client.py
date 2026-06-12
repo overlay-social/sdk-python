@@ -22,8 +22,10 @@ import httpx
 
 from .models import (
     FeedResponse,
+    FriendsGraph,
     HandleResolution,
     IdentityBundle,
+    NotificationItem,
     OverlayState,
     PeckRow,
     ProfileRow,
@@ -64,6 +66,15 @@ def _feed_query(params: dict[str, Any]) -> dict[str, str]:
     put("author", params.get("author"))
     put("order", params.get("order", "desc"))
     put("before", params.get("before"))
+    # Geo: near={"lat":..,"lng":..} (+ radius_km) → haversine; bbox=(w,s,e,n).
+    near = params.get("near")
+    if near:
+        lat = near.get("lat") if isinstance(near, dict) else near[0]
+        lng = near.get("lng") if isinstance(near, dict) else near[1]
+        put("near", f"{lat},{lng}")
+        put("radius_km", params.get("radius_km"))
+    elif params.get("bbox"):
+        put("bbox", ",".join(str(x) for x in params["bbox"]))
     return out
 
 
@@ -245,6 +256,64 @@ class OverlayClient:
             raise OverlayError(f"overlay {resp.status_code} on /v1/bio/profile")
         return _interp_profile(resp.json())
 
+    # social graph
+    def get_friends(self, subject: str) -> FriendsGraph:
+        """GET /v1/friends/:subject — mutual-consent friendship graph for an
+        identity ROOT pubkey. Returns an EMPTY graph on any error."""
+        if not subject:
+            return FriendsGraph()
+        try:
+            data = self._get_json_or_null(f"/v1/friends/{subject}")
+            return FriendsGraph.from_dict(data) if isinstance(data, dict) else FriendsGraph()
+        except Exception:
+            return FriendsGraph()
+
+    def get_notifications(
+        self, address: str, *, limit: int = 50, offset: int = 0, mentions: bool = True
+    ) -> list[NotificationItem]:
+        """GET /v1/notifications/:address — like/reply/follow/mention/
+        friend_request targeting a POSTING address, newest first. [] on error."""
+        if not address:
+            return []
+        try:
+            params: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
+            if not mentions:
+                params["mentions"] = "0"
+            r = self._client.get(f"{self.base_url}/v1/notifications/{address}", params=params)
+            if r.status_code // 100 != 2:
+                return []
+            data = r.json() if r.content else {}
+            return [NotificationItem.from_dict(x) for x in (data.get("data") or []) if isinstance(x, dict)]
+        except Exception:
+            return []
+
+    def get_follows(self, address: str) -> dict[str, Any]:
+        """GET /v1/follows/:address — follower/following counts + rows.
+        Safe-empty dict on error."""
+        empty: dict[str, Any] = {"followers": 0, "following": 0, "data": {"followers": [], "following": []}}
+        if not address:
+            return empty
+        try:
+            data = self._get_json_or_null(f"/v1/follows/{address}")
+            return data if isinstance(data, dict) else empty
+        except Exception:
+            return empty
+
+    def get_blocks(self, address: str, *, kind: str | None = None) -> list[dict[str, Any]]:
+        """GET /v1/blocks/:address — OUTGOING block/mute list (the overlay
+        deliberately does not expose who-blocked-me). [] on error."""
+        if not address:
+            return []
+        try:
+            params = {"kind": kind} if kind else None
+            r = self._client.get(f"{self.base_url}/v1/blocks/{address}", params=params)
+            if r.status_code // 100 != 2:
+                return []
+            data = r.json() if r.content else {}
+            return list(data.get("data") or [])
+        except Exception:
+            return []
+
     # feed / posts
     def get_feed(self, **params: Any) -> FeedResponse:
         resp = self._client.get(f"{self.base_url}/v1/feed", params=_feed_query(params))
@@ -267,8 +336,17 @@ class OverlayClient:
         return OverlayState.from_dict(self._get_json("/state"))
 
     def get_topic_root(self, topic: str) -> TopicState | None:
+        """GET /v1/topic/:topic/root (cheap, 30s server cache; no anchor —
+        use get_anchor/verify_root for on-chain status). Falls back to a
+        find over /state for older overlays."""
         if not topic:
             return None
+        try:
+            data = self._get_json_or_null(f"/v1/topic/{topic}/root")
+            if isinstance(data, dict) and data.get("stateRoot"):
+                return TopicState.from_dict(data)
+        except Exception:
+            pass
         try:
             for t in self.get_state().topics:
                 if t.topic == topic:
@@ -395,6 +473,61 @@ class AsyncOverlayClient:
             raise OverlayError(f"overlay {resp.status_code} on /v1/bio/profile")
         return _interp_profile(resp.json())
 
+    async def get_friends(self, subject: str) -> FriendsGraph:
+        """GET /v1/friends/:subject — mutual-consent friendship graph for an
+        identity ROOT pubkey. Returns an EMPTY graph on any error."""
+        if not subject:
+            return FriendsGraph()
+        try:
+            data = await self._get_json_or_null(f"/v1/friends/{subject}")
+            return FriendsGraph.from_dict(data) if isinstance(data, dict) else FriendsGraph()
+        except Exception:
+            return FriendsGraph()
+
+    async def get_notifications(
+        self, address: str, *, limit: int = 50, offset: int = 0, mentions: bool = True
+    ) -> list[NotificationItem]:
+        """GET /v1/notifications/:address — like/reply/follow/mention/
+        friend_request targeting a POSTING address, newest first. [] on error."""
+        if not address:
+            return []
+        try:
+            params: dict[str, str] = {"limit": str(limit), "offset": str(offset)}
+            if not mentions:
+                params["mentions"] = "0"
+            r = await self._client.get(f"{self.base_url}/v1/notifications/{address}", params=params)
+            if r.status_code // 100 != 2:
+                return []
+            data = r.json() if r.content else {}
+            return [NotificationItem.from_dict(x) for x in (data.get("data") or []) if isinstance(x, dict)]
+        except Exception:
+            return []
+
+    async def get_follows(self, address: str) -> dict[str, Any]:
+        """GET /v1/follows/:address — follower/following counts + rows."""
+        empty: dict[str, Any] = {"followers": 0, "following": 0, "data": {"followers": [], "following": []}}
+        if not address:
+            return empty
+        try:
+            data = await self._get_json_or_null(f"/v1/follows/{address}")
+            return data if isinstance(data, dict) else empty
+        except Exception:
+            return empty
+
+    async def get_blocks(self, address: str, *, kind: str | None = None) -> list[dict[str, Any]]:
+        """GET /v1/blocks/:address — OUTGOING block/mute list. [] on error."""
+        if not address:
+            return []
+        try:
+            params = {"kind": kind} if kind else None
+            r = await self._client.get(f"{self.base_url}/v1/blocks/{address}", params=params)
+            if r.status_code // 100 != 2:
+                return []
+            data = r.json() if r.content else {}
+            return list(data.get("data") or [])
+        except Exception:
+            return []
+
     async def get_feed(self, **params: Any) -> FeedResponse:
         resp = await self._client.get(f"{self.base_url}/v1/feed", params=_feed_query(params))
         if resp.status_code // 100 != 2:
@@ -415,8 +548,16 @@ class AsyncOverlayClient:
         return OverlayState.from_dict(await self._get_json("/state"))
 
     async def get_topic_root(self, topic: str) -> TopicState | None:
+        """GET /v1/topic/:topic/root (cheap; no anchor — use get_anchor/
+        verify_root). Falls back to a find over /state for older overlays."""
         if not topic:
             return None
+        try:
+            data = await self._get_json_or_null(f"/v1/topic/{topic}/root")
+            if isinstance(data, dict) and data.get("stateRoot"):
+                return TopicState.from_dict(data)
+        except Exception:
+            pass
         try:
             state = await self.get_state()
         except OverlayError:

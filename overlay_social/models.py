@@ -257,3 +257,71 @@ class FeedResponse:
 class ThreadResponse:
     post: PeckRow | None = None
     replies: list[PeckRow] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class FriendEntry:
+    """One side of the friend graph, hydrated with the peer's canonical handle."""
+
+    peer: str  # peer identity ROOT pubkey (66-hex compressed)
+    handle: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "FriendEntry":
+        return cls(peer=d.get("peer", ""), handle=d.get("handle"))
+
+
+@dataclass(frozen=True)
+class FriendsGraph:
+    """GET /v1/friends/:subject — mutual-consent friendship layer.
+
+    ``mutual`` = both directions attested + unrevoked (two one-way BRC-3
+    records form a pair). ``pending_in``/``pending_out`` are one-way.
+    ``legacy_outgoing``/``legacy_incoming`` mirror the BAP-era Bitcoin Schema
+    rows (display-only; never count toward mutual).
+    """
+
+    mutual: list[FriendEntry] = field(default_factory=list)
+    pending_in: list[FriendEntry] = field(default_factory=list)
+    pending_out: list[FriendEntry] = field(default_factory=list)
+    legacy_outgoing: list[dict[str, Any]] = field(default_factory=list)
+    legacy_incoming: list[dict[str, Any]] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "FriendsGraph":
+        light = d.get("light") or {}
+        data = d.get("data") or {}
+        return cls(
+            mutual=[FriendEntry.from_dict(x) for x in (light.get("mutual") or [])],
+            pending_in=[FriendEntry.from_dict(x) for x in (light.get("pending_in") or [])],
+            pending_out=[FriendEntry.from_dict(x) for x in (light.get("pending_out") or [])],
+            legacy_outgoing=list(data.get("outgoing") or []),
+            legacy_incoming=list(data.get("incoming") or []),
+        )
+
+
+@dataclass(frozen=True)
+class NotificationItem:
+    """One row from GET /v1/notifications/:address.
+
+    ``actor`` is an address/username for like/reply/follow/mention and an
+    identity ROOT pubkey for friend_request — resolve via resolve_identities
+    (bound posting keys collapse to their identity).
+    """
+
+    type: str
+    actor: str
+    target_txid: str | None = None
+    subject_txid: str | None = None
+    timestamp: str | None = None
+
+    @classmethod
+    def from_dict(cls, d: dict[str, Any]) -> "NotificationItem":
+        ts = d.get("timestamp")
+        return cls(
+            type=d.get("type", ""),
+            actor=d.get("actor", ""),
+            target_txid=d.get("target_txid"),
+            subject_txid=d.get("subject_txid"),
+            timestamp=str(ts) if ts is not None else None,
+        )
