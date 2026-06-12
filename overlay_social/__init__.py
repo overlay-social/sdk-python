@@ -28,9 +28,12 @@ from .client import (
 )
 from .models import (
     FeedResponse,
+    FriendEntry,
+    FriendsGraph,
     HandleResolution,
     IdentityBundle,
     IdentityProfile,
+    NotificationItem,
     OverlayState,
     PeckRow,
     ProfileRow,
@@ -41,7 +44,7 @@ from .models import (
     TopicState,
 )
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "__version__",
@@ -53,6 +56,9 @@ __all__ = [
     "create_async_overlay_client",
     "ResolvedIdentity",
     "IdentityBundle",
+    "FriendEntry",
+    "FriendsGraph",
+    "NotificationItem",
     "IdentityProfile",
     "HandleResolution",
     "ProfileRow",
