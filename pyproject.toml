@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "overlay-social"
-version = "0.2.0"
+version = "0.3.0"
 description = "Read-only Python client for overlay.peck.to — identity resolution, profiles, feed and overlay state over the canonical BSV/BRC-100 social overlay."
 readme = "README.md"
 requires-python = ">=3.10"
