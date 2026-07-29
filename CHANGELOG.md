@@ -3,6 +3,19 @@
 All notable changes to `overlay-social` (Python). Mirrors
 `@overlay-social/sdk` (TypeScript) one-to-one.
 
+## 0.3.0 — 2026-07-29
+
+### Added
+- `SourceHandle` (TypedDict) — a source-scoped alias for a `PeckRow`'s
+  `author`, present at `row["source_handle"]` on `app == "zanaadu"` rows
+  that own an on-chain "user number" (`{namespace: "zanaadu", value: "@14",
+  number: 14, kind: "user_number", membership_proof: "none"}`, plus
+  `numbers` when a key owns more than one). Additive: comes alongside
+  `author`, never replaces it, and is absent (not `None`) when the author
+  has no number. `membership_proof: "none"` is explicit that the value is
+  read from Zanaadu's registry, not verified against their Merkle tree.
+  See `peck-overlay-schema/ZANAADU_POSTANCHOR_FORMAT.md` §13.
+
 ## 0.2.0 — 2026-06-12
 
 ### Added
