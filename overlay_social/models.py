@@ -5,17 +5,63 @@ the EXACT keys the live overlay returns — note the API itself mixes camelCase
 (``displayName``, ``avatarRef``, ``stateRoot``) and snake_case (``minted_at``);
 the ``from_dict`` helpers preserve that verbatim rather than silently
 normalizing a real contract difference. Open-ended rows (``PeckRow``) stay
-plain dicts because the indexer rides extra MAP keys.
+plain dicts because the indexer rides extra MAP keys — the one typed
+exception is ``SourceHandle``, documented separately below because it is a
+nested value worth a real shape, not a top-level response.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal, TypedDict
 
 # A peck row (/v1/feed, /v1/post/:txid) is intentionally an open dict — the
 # indexer carries arbitrary extra MAP keys, so we do not lock its shape.
 PeckRow = dict[str, Any]
+
+
+class _SourceHandleRequired(TypedDict):
+    namespace: Literal["zanaadu"]
+    value: str
+    number: int
+    kind: Literal["user_number"]
+    membership_proof: Literal["none"]
+
+
+class SourceHandle(_SourceHandleRequired, total=False):
+    """Feed shape of one foreign-namespace alias (mirrors `SourceHandle` in
+    ``@overlay-social/sdk`` one-to-one).
+
+    May appear at ``PeckRow["source_handle"]``. Today the only source is
+    Zanaadu: it sells on-chain "user numbers" (an on-chain collectibles
+    registry), and rows with ``app == "zanaadu"`` carry the holder's number
+    here. See ``peck-overlay-schema/ZANAADU_POSTANCHOR_FORMAT.md`` §13 for
+    the full derivation and its proof gap.
+
+    ``namespace`` is mandatory and comes first so the value can never be
+    shown bare and mistaken for a peck handle — render it qualified, e.g.
+    ``@14 · zanaadu``.
+
+    Rules (normative):
+
+    - Comes IN ADDITION TO ``author`` (the key). Never replaces it.
+    - Omitted from the row entirely (never ``None``, never ``""``) when the
+      author has no alias at the source — absence is a valid, measured
+      state there, not a gap to fill with a guess.
+    - ``membership_proof: "none"`` means the value was READ from the
+      source's own state (here: a registry counter, cross-checked 7/7
+      against Zanaadu's own UI) but the source's stronger commitment
+      (their sparse Merkle tree) is NOT verified by us — the root is
+      legible, not reproducible. It is not a claim that the number itself
+      is unreliable.
+    - ``numbers`` (all numbers this key owns at the source, ascending) is
+      only present when there is more than one; ``value``/``number`` are
+      then the lowest. Tie-break for "which number is primary" when a key
+      owns several is NOT proven on-chain (§13.7) — lowest was chosen for
+      stability over time, not because it is confirmed canonical.
+    """
+
+    numbers: list[int]
 
 
 @dataclass(frozen=True)
