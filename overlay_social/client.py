@@ -66,7 +66,10 @@ def _feed_query(params: dict[str, Any]) -> dict[str, str]:
     put("author", params.get("author"))
     put("order", params.get("order", "desc"))
     put("before", params.get("before"))
-    # Geo: near={"lat":..,"lng":..} (+ radius_km) → haversine; bbox=(w,s,e,n).
+    # Geo: near={"lat":..,"lng":..} (+ radius_km) → haversine, or
+    # bbox=(west, south, east, north) (longitude first, the GeoJSON order).
+    # On the wire the overlay reads latitude first: bbox=south,west,north,east.
+    # `near` wins when both are given.
     near = params.get("near")
     if near:
         lat = near.get("lat") if isinstance(near, dict) else near[0]
@@ -74,7 +77,11 @@ def _feed_query(params: dict[str, Any]) -> dict[str, str]:
         put("near", f"{lat},{lng}")
         put("radius_km", params.get("radius_km"))
     elif params.get("bbox"):
-        put("bbox", ",".join(str(x) for x in params["bbox"]))
+        try:
+            west, south, east, north = params["bbox"]
+        except (TypeError, ValueError):
+            raise ValueError("bbox must be (west, south, east, north)") from None
+        put("bbox", f"{south},{west},{north},{east}")
     return out
 
 

@@ -3,6 +3,17 @@
 All notable changes to `overlay-social` (Python). Mirrors
 `@overlay-social/sdk` (TypeScript) one-to-one.
 
+## Unreleased
+
+### Fixed
+- `get_feed(bbox=...)` sent the box longitude first, but `/v1/feed` reads it
+  latitude first, so the box selected the wrong area (usually none). The
+  argument is still `(west, south, east, north)`; it is now sent as
+  `south,west,north,east`, the same fix as `@overlay-social/sdk`. Callers that
+  worked around this by passing latitude first should switch to the
+  documented order. A `bbox` that is not four values raises `ValueError`
+  instead of being forwarded as is.
+
 ## 0.3.0 — 2026-07-29
 
 ### Added
