@@ -6,7 +6,7 @@ mint, pay, or federate — none of those exist on the live service. It speaks th
 REST facade that actually runs today (verified against overlay.peck.to), NOT
 the BRC-24 ``peck-schema`` lookup (that lookup is a no-op).
 
-Semantics mirror @overlay-social/sdk and peck-web/overlay_client.py:
+Semantics mirror @overlay-social/sdk:
   * ``resolve_identities`` returns ``{}`` on ANY error and omits keys without a
     canonical ProfileToken, so a feed UI can enrich defensively and NEVER break.
   * single-item lookups return ``None`` for missing/invalid (404/400/empty).
