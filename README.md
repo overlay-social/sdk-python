@@ -83,7 +83,7 @@ notifs = overlay.get_notifications("<posting-address>", limit=50)
 overlay.get_follows("<address>")          # follower/following counts + rows
 overlay.get_blocks("<address>")           # OUTGOING block/mute list only
 overlay.get_feed(near={"lat": 59.94, "lng": 10.76}, radius_km=2)   # geo
-overlay.get_feed(bbox=(10.5, 59.8, 11.0, 60.1))                    # bounding box
+overlay.get_feed(bbox=(10.5, 59.8, 11.0, 60.1))                    # bounding box (west, south, east, north)
 overlay.verify_root("tm_social-content")  # on-chain anchor vs live state-root
 ```
 

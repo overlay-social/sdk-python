@@ -3,6 +3,17 @@
 All notable changes to `overlay-social` (Python). Mirrors
 `@overlay-social/sdk` (TypeScript) one-to-one.
 
+## Unreleased
+
+### Fixed
+- `get_feed(bbox=...)` sent the box longitude first, but `/v1/feed` reads it
+  latitude first, so the box selected the wrong area (usually none). The
+  argument is still `(west, south, east, north)`; it is now sent as
+  `south,west,north,east`, the same fix as `@overlay-social/sdk`. Callers that
+  worked around this by passing latitude first should switch to the
+  documented order. A `bbox` that is not four values raises `ValueError`
+  instead of being forwarded as is.
+
 ## 0.3.0 — 2026-07-29
 
 ### Added
@@ -13,8 +24,9 @@ All notable changes to `overlay-social` (Python). Mirrors
   `numbers` when a key owns more than one). Additive: comes alongside
   `author`, never replaces it, and is absent (not `None`) when the author
   has no number. `membership_proof: "none"` is explicit that the value is
-  read from Zanaadu's registry, not verified against their Merkle tree.
-  See `peck-overlay-schema/ZANAADU_POSTANCHOR_FORMAT.md` §13.
+  read from Zanaadu's registry, not verified against their Merkle tree. The
+  number is derived from Zanaadu's registry transactions (a registration
+  advances a counter; entries can change owner through their marketplace).
 
 ## 0.2.0 — 2026-06-12
 
